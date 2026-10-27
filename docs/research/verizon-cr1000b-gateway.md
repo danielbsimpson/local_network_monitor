@@ -19,6 +19,14 @@ constraints; per-device usage API; pause/resume + auth model), each
 instructed to use only primary sources and to label anything resting on a
 forum/Reddit post as unverified. That labeling is preserved below.
 
+> **Superseded in part by hands-on measurement.** Several questions left open
+> here have since been settled against the physical gateway — see
+> [cr1000b-hands-on-findings.md](./cr1000b-hands-on-findings.md). In
+> particular: the counter tick is ~20.6s (so the README's 2-5s refresh target
+> is not achievable), `bytes_rx` is the download rate rather than `bytes_tx`,
+> and `get_history_rates` is not a live network total. Where the two documents
+> disagree, the measured findings win.
+
 ---
 
 ## 1. Model identity
