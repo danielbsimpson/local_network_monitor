@@ -102,6 +102,47 @@ The device entry count moved 6 -> 8 -> 9 within the first 40s of run 1. The
 set of entries is not stable across a monitoring session, which the UI must
 handle without implying a device appeared or vanished physically.
 
+## Finding 7: block/allow policy state is not exposed in the data layer
+
+A local Block/Allow control does exist on the admin UI's Devices page and was
+exercised against a test device entry (`6a:b6:9b:d1:09:bd`, a MacBook Pro at
+192.168.1.169). Snapshots taken before and after the toggle showed **no change
+to any field of that device entry**, across 6 discovered endpoints and 6,172
+leaf values. `parentalrules` was an empty list both before and after.
+
+The instrument was validated first: a control pair of snapshots taken 2.5
+minutes apart with no policy change produced 454 drifting leaves, of which 4
+survived filtering — all of them `activity`/`activity_ip` flipping `0 -> 1` on
+a *different* device entry that came online. So the probe does detect real
+state changes; it found none for the blocked device entry.
+
+**Conclusion:** policy state is not readable from the `cgi_*.js` data files the
+admin SPA loads. Reading back whether a device entry is blocked would require
+either `db.cgi` (a POST query endpoint, not examined) or scraping the rendered
+admin UI.
+
+This matters because README acceptance criterion 4 requires *gateway-confirmed*
+policy state, and the README further requires that commands remain pending
+until the gateway reports the requested state. Neither is satisfiable from the
+data layer as it stands.
+
+**Explicitly NOT established:**
+
+- Whether the block was actually *enforced* — the test device was not checked
+  for loss of internet access. The click was made; the effect was not observed.
+- Whether the block persists across a page refresh.
+- Whether already-established connections survive a block.
+- Whether an undiscovered endpoint carries the state. The six endpoints were
+  found by guessing page names; 332 further candidates derived from the SPA's
+  route table have not been scanned.
+
+**A related signal, unverified:** `cgi_parental.js` carries `HNP_Enable: 1`,
+`HNP_Title: "Digital Secure Home and Parental Controls"` and `HNP_Applink:
+https://home.verizon.com/ds?src=rgui` — a QR-code sign-up pointing at a Verizon
+cloud service. Together with `parentalrules` being empty, this raises the
+possibility that parental controls on this firmware are primarily a cloud
+offering and that local rule storage is vestigial. Not established either way.
+
 ## Verdict against the README acceptance criteria
 
 | # | Criterion | Verdict |
@@ -109,8 +150,8 @@ handle without implying a device appeared or vanished physically.
 | 1 | Controlled traffic attributed to the correct test-device entry | **PASS** — 109.7x signal on the correct entry, direction confirmed, subject to the 1.28x accuracy caveat |
 | 2 | Measurements update within 5 seconds | **FAIL** — the gateway ticks at ~20.6s. Not achievable from this measurement source at any poll rate |
 | 3 | Rolling chart retains 10 minutes, gaps not zero | **ACHIEVABLE** — ~29 points per 10 minutes at the observed tick |
-| 4 | Pause/resume with gateway-confirmed policy state | **NOT YET TESTED** |
-| 5 | Lost connectivity produces stale/error state | **NOT YET TESTED** |
+| 4 | Pause/resume with gateway-confirmed policy state | **PARTIAL** — a local Block/Allow control exists and is reachable, but policy state is not readable from the data layer (finding 7), and enforcement was not observed |
+| 5 | Lost connectivity produces stale/error state | **NOT YET TESTED** — rereading policy state on reconnect inherits the problem in finding 7 |
 | 6 | Cannot pause the management computer, gateway, or protected entries | **NOT YET TESTED** — note the management computer is device entry `bc:38:98:69:3e:08`, which must be ineligible |
 | 7 | Traffic history discarded on close | Application behavior, not gateway-dependent |
 
@@ -134,10 +175,16 @@ measurement is not zero.
 
 ## Remaining open questions
 
-1. **Pause/resume** (criteria 4, 5, 6) is entirely untested against the
-   hardware. Specifically: is block state readable as a structured field or
-   only as rendered HTML, and are already-established connections torn down
-   when a rule applies?
+0. **Capture what the admin UI does when Block/Allow is clicked.** The highest
+   value next step, and it avoids guessing at a write API. With browser dev
+   tools open on the Devices page (Network tab, preserve log, Fetch/XHR
+   filter), click Block/Allow and record the request URL, method and payload,
+   plus which requests fire *afterward* — the latter reveal where the UI reads
+   policy state from. Then confirm the device entry actually loses internet
+   access, and that the state survives a page refresh.
+1. **Pause/resume** (criteria 4, 5, 6) is partially tested — see finding 7.
+   Specifically outstanding: enforcement, persistence, and whether already-
+   established connections are torn down when a rule applies.
 2. **Does `hosts_trafstat` count local traffic?** Untested — no local traffic
    existed during these runs. Settle with a deliberate LAN-only transfer
    between two devices while watching the counters.
