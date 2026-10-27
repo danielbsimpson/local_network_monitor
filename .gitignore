@@ -1,0 +1,30 @@
+# Secrets and local configuration — never commit gateway credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# Spike / probe output: contains device entry MAC addresses from a real network
+spike/*.jsonl
+spike/out/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Editors and OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.swp
+
+# Scratch
+.scratch/
+*.tmp
