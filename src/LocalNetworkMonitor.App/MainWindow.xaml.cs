@@ -13,19 +13,24 @@ public partial class MainWindow : Window
 {
     private readonly WindowsCredentialStore store = new();
     private readonly CredentialSession credentials;
-    private readonly MeasurementHistory history = new();
+    private readonly Func<Uri, GatewayClient> createClient;
+    private MeasurementHistory history = new();
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DateTimeOffset clockOrigin = DateTimeOffset.UtcNow;
     private readonly long clockStart = Stopwatch.GetTimestamp();
     private CancellationTokenSource? monitoring;
+    private Uri? historyOrigin;
     private DateTimeOffset? lastContact;
     private bool reachable;
     private string? selectedEntry;
     private bool refreshing;
     private DateTimeOffset Now => clockOrigin + Stopwatch.GetElapsedTime(clockStart);
 
-    public MainWindow()
+    public MainWindow() : this(GatewayClient.Create) { }
+
+    internal MainWindow(Func<Uri, GatewayClient> createClient)
     {
+        this.createClient = createClient;
         InitializeComponent();
         credentials = new(store);
         timer.Tick += (_, _) => RefreshDisplay();
@@ -56,9 +61,18 @@ public partial class MainWindow : Window
         try
         {
             var endpoint = Endpoint();
+            if (historyOrigin != endpoint)
+            {
+                history = new();
+                historyOrigin = endpoint;
+                lastContact = null;
+                reachable = false;
+                selectedEntry = null;
+                RefreshDisplay();
+            }
             if (Password.Password.Length == 0)
                 throw new ArgumentException("Enter the router password or explicitly load a saved password.");
-            using var client = GatewayClient.Create(endpoint);
+            using var client = createClient(endpoint);
             SetStatus("Connecting with normal HTTPS certificate validation...");
             await client.LoginAsync(Password.Password, cancellation.Token);
             var counters = await client.ReadCountersAsync(cancellation.Token);

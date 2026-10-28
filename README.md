@@ -55,6 +55,7 @@ explicit decision after inspecting the actual certificate.
 
 Tests use synthetic HTTP responses, plus real Windows Credential Manager
 round-trip/deletion under a unique synthetic target and a WPF window smoke test.
+Offline reconnect tests verify that history is isolated by gateway origin.
 They do not log in to the physical gateway, establish measurement coverage, or
 certify enforcement. Production does not offer a simulated-data mode.
 
@@ -75,6 +76,10 @@ certify enforcement. Production does not offer a simulated-data mode.
   authentication retries and requires explicit reconnection; saved credentials
   are not silently changed.
 
+Raw router research captures can contain Wi-Fi passwords and identifying network
+details. Keep them out of Git and redact sensitive fields before retaining or
+sharing them; being ignored by Git does not make a local capture safe to share.
+
 ### Observation and chart semantics
 
 - Poll after a five-second wait, with no overlapping or catch-up requests.
@@ -93,6 +98,10 @@ certify enforcement. Production does not offer a simulated-data mode.
 - Timeouts, failed reads, session renewal, disappearance, and decreasing rolling
   counters break the rate baseline. Reappearance/reconnection first establishes
   a new baseline. A decrease is an observed counter change, not a negative rate.
+- Reconnecting to the same HTTPS gateway origin retains its unexpired history.
+  Attempting a connection to a different hostname or port clears the previous
+  gateway's history, chart selection, and last-contact state before login, even
+  if the new connection fails. Switching back does not restore cleared history.
 - After 60 seconds without an observed counter change, show neutral inactivity
   messaging: traffic may be idle. Actual collection/authentication/data failures
   are visible immediately, independently of that threshold.

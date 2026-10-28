@@ -5,6 +5,7 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="LocalNetworkMonitor.Tests" />
     <ProjectReference Include="..\LocalNetworkMonitor.Core\LocalNetworkMonitor.Core.csproj" />
   </ItemGroup>
 </Project>
