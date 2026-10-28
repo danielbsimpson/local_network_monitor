@@ -157,6 +157,12 @@ offering and that local rule storage is vestigial. Not established either way.
 
 ## Decision required before implementation
 
+**Resolved on 2026-10-28:** the user accepted option 1, keeping this gateway and
+its approximate 21-second measurements. See the [README](../../README.md) for
+the agreed framework, credential lifecycle, polling, and repeated-counter UX.
+The historical gate analysis below remains evidence of why the target changed;
+it does not establish that the remaining hardware acceptance checks passed.
+
 Criterion 2 cannot be met as written. The README's own gate directs returning
 to the user to decide explicitly between changing infrastructure and changing
 requirements. The options:

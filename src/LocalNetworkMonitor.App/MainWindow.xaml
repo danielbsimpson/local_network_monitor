@@ -1,0 +1,74 @@
+<Window x:Class="LocalNetworkMonitor.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:LocalNetworkMonitor.App"
+        Title="Local Network Monitor" Width="1180" Height="820" MinWidth="960" MinHeight="700">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="230"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="Local Network Monitor" FontSize="26" FontWeight="SemiBold"/>
+            <TextBlock Margin="0,6,0,12" Text="CR1000B approximate device-entry traffic. Source updates ~21s; checked every 5s. No cloud services or saved traffic history."/>
+            <WrapPanel>
+                <StackPanel Margin="0,0,12,0">
+                    <Label Target="{Binding ElementName=Gateway}" Content="HTTPS gateway"/>
+                    <TextBox x:Name="Gateway" Width="260" Padding="6" Text="https://mynetworksettings.com"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,12,0">
+                    <Label Target="{Binding ElementName=Password}" Content="Router administrator password"/>
+                    <PasswordBox x:Name="Password" Width="220" Padding="6"/>
+                </StackPanel>
+                <Button x:Name="Connect" Content="Connect" Click="Connect_Click" VerticalAlignment="Bottom"/>
+                <Button x:Name="Disconnect" Content="Disconnect" Click="Disconnect_Click" IsEnabled="False" VerticalAlignment="Bottom"/>
+            </WrapPanel>
+            <WrapPanel Margin="0,8">
+                <CheckBox x:Name="Remember" Content="Remember on this Windows account" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Button x:Name="LoadSaved" Content="Load saved password" Click="LoadSaved_Click"/>
+                <Button Content="Forget saved password" Click="Forget_Click"/>
+            </WrapPanel>
+        </StackPanel>
+        <Border Grid.Row="1" Background="#F1F5F9" Padding="12" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock x:Name="Status" Text="Disconnected. HTTPS trust must validate before login." FontWeight="SemiBold"/>
+                <TextBlock x:Name="Reachability" Margin="0,4,0,0" Text="Router has not been checked."/>
+            </StackPanel>
+        </Border>
+        <TextBlock Grid.Row="2" Margin="0,0,0,8"
+                   Text="Coverage: gateway-reported entries only; not unique physical devices. Byte totals are indicative, not exact. Local-traffic exclusion and extender coverage remain unverified. No gateway-total claim."/>
+        <DataGrid Grid.Row="3" x:Name="Devices" AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Single" SelectionChanged="Devices_SelectionChanged" CanUserAddRows="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Device entry (MAC)" Binding="{Binding Id}" Width="150"/>
+                <DataGridTextColumn Header="Coverage" Binding="{Binding Coverage}" Width="100"/>
+                <DataGridTextColumn Header="Download average" Binding="{Binding Download}" Width="130"/>
+                <DataGridTextColumn Header="Upload average" Binding="{Binding Upload}" Width="130"/>
+                <DataGridTextColumn Header="Last estimate interval" Binding="{Binding Interval}" Width="180"/>
+                <DataGridTextColumn Header="Observed counter changes" Binding="{Binding Change}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="ChartTitle" Text="Select a device entry. Ten-minute session history; blanks mean unknown, not zero."/>
+            <local:TrafficChart x:Name="Chart" Grid.Row="1" Margin="0,6"/>
+            <TextBlock Grid.Row="2" Text="Blue: download; orange: upload (Mbps). Segments are approximate averages over observed intervals, not instantaneous speeds. Long intervals are coarse averages."/>
+        </Grid>
+        <StackPanel Grid.Row="5" Margin="0,12,0,0">
+            <WrapPanel>
+                <Button x:Name="PauseInternet" Content="Pause internet" IsEnabled="False"/>
+                <Button x:Name="ResumeInternet" Content="Resume internet" IsEnabled="False"/>
+                <TextBlock VerticalAlignment="Center" Text="Unavailable: policy readback, protections, recovery, and enforcement are not verified."/>
+            </WrapPanel>
+            <TextBlock FontSize="11" Text="Session cookies stay in memory. Forget removes the saved password, not the current session. Closing the app ends collection and discards traffic history."/>
+        </StackPanel>
+    </Grid>
+</Window>

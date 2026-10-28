@@ -9,24 +9,96 @@ AI. It is intended only for a network the user owns or administers.
 
 ## Status and feasibility gate
 
-The project is at the concept stage; there is no application implementation yet.
-The initial target is one network and one verified router/gateway integration,
-not arbitrary consumer-router compatibility.
+The initial implementation is a Windows-only **C#/.NET 10 + WPF monitoring app**
+for the Verizon CR1000B. The [hands-on findings](./docs/research/cr1000b-hands-on-findings.md)
+establish an approximately **20.6-second source counter cycle**, not live
+2-5-second measurements. On 2026-10-28, the user explicitly accepted this limit,
+Windows-only WPF, and the credential/freshness policies below.
 
-**The gateway model and its capabilities are currently unknown.** Before choosing
-an application framework or building the dashboard:
+The app implements the documented challenge-response login and reads the
+one-hour `hosts_trafstat` bucket from `/cgi/cgi_bandwith.js`. The parser accepts
+JSON data within `addROD`, never executes gateway JavaScript, and rejects missing,
+invalid, or unsupported measurement shapes instead of substituting zeroes.
+End-to-end compatibility with the actual gateway is **not yet certified**.
 
-1. Identify the target gateway and any separate mesh/access-point equipment.
-2. Verify that an authorized integration can provide per-device internet usage,
-   including its coverage and achievable refresh cadence.
-3. Verify reversible internet access pause/resume, reported policy state,
-   enforcement limitations, and a router-based recovery path.
-4. Return to the user if the hardware cannot support the agreed scope or refresh
-   target; explicitly decide whether to change infrastructure or requirements.
+**Pause/resume remains unavailable.** Machine-readable policy state, enforcement,
+management-path protections, and recovery must be verified before enabling
+control commands. No router control requests are implemented.
 
 Do not substitute simulated data or host-only measurements for network-wide
-capabilities. Integration details, credential storage, and framework selection
-remain unresolved until this gate is passed.
+capabilities. Local-traffic exclusion and extender coverage are still unverified.
+
+## Build, test, and run
+
+Requires Windows and a .NET 10 SDK with Windows desktop support:
+
+```powershell
+dotnet build .\LocalNetworkMonitor.sln
+dotnet test .\LocalNetworkMonitor.sln
+dotnet run --project .\src\LocalNetworkMonitor.App\LocalNetworkMonitor.App.csproj
+```
+
+If using the user-local SDK installed during development rather than an SDK on
+`PATH`, replace `dotnet` with:
+
+```powershell
+& "$env:LOCALAPPDATA\LocalNetworkMonitor\dotnet\dotnet.exe"
+```
+
+Enter an HTTPS gateway origin, normally `https://mynetworksettings.com`, and its
+administrator password. Normal HTTPS certificate and hostname validation must
+succeed **before credentials are submitted**. The research records browser trust
+warnings on this gateway; if Windows does not trust its certificate, login is
+blocked visibly. No certificate bypass, automatic trust installation, or HTTP
+fallback exists. Any gateway-specific trust exception requires a separate
+explicit decision after inspecting the actual certificate.
+
+Tests use synthetic HTTP responses, plus real Windows Credential Manager
+round-trip/deletion under a unique synthetic target and a WPF window smoke test.
+They do not log in to the physical gateway, establish measurement coverage, or
+certify enforcement. Production does not offer a simulated-data mode.
+
+### Credential lifecycle
+
+- Session-only by default. "Remember on this Windows account" is unchecked.
+- Opting in stores the password in Windows Credential Manager, scoped to the
+  exact gateway origin, only after login and a valid counter response succeed.
+- "Load saved password" explicitly retrieves an existing credential. Connecting
+  without Remember does not overwrite or delete an existing saved credential.
+- "Forget saved password" deletes persistence immediately, without ending an
+  active in-memory session. Disconnect/close releases app-held session references.
+- Passwords and session cookies may remain in process memory until disconnect or
+  close; no authentication material is logged or written to application settings.
+  Managed strings cannot guarantee immediate zeroization. Windows storage is not
+  protection against malicious processes running as the same Windows account.
+- An expired session gets one automatic re-login attempt. A failed renewal stops
+  authentication retries and requires explicit reconnection; saved credentials
+  are not silently changed.
+
+### Observation and chart semantics
+
+- Poll after a five-second wait, with no overlapping or catch-up requests.
+  Requests time out after ten seconds. Collection failures back off to
+  10, 20, 40, then at most 60 seconds; success restores the five-second wait.
+- Router reachability/last valid response and last observed per-entry counter
+  change are separate. A successful response is not proof of a new source sample.
+- Unchanged counters do not create chart points or prove zero traffic. Before a
+  first change, the entry is awaiting an interval.
+- A valid counter increase yields an approximate byte delta / elapsed observation
+  interval average. Repeated polls do not shorten that interval. A long interval
+  is a coarse average, not evidence of a burst at its end.
+- Chart segments cover only those observed intervals. No previous rate is
+  extended into unconfirmed time. Numeric estimates identify their historical
+  interval and age. Unknown intervals are blank, not zero.
+- Timeouts, failed reads, session renewal, disappearance, and decreasing rolling
+  counters break the rate baseline. Reappearance/reconnection first establishes
+  a new baseline. A decrease is an observed counter change, not a negative rate.
+- After 60 seconds without an observed counter change, show neutral inactivity
+  messaging: traffic may be idle. Actual collection/authentication/data failures
+  are visible immediately, independently of that threshold.
+- History uses a monotonic session clock and expires after ten minutes. An
+  interval crossing the left chart boundary is visually clipped without
+  pretending its average was measured over a shorter interval.
 
 ## Agreed MVP
 
@@ -42,8 +114,8 @@ remain unresolved until this gate is passed.
 
 ### Internet bandwidth visibility
 
-- Separate download and upload rates per gateway-reported device entry, targeting
-  updates every 2-5 seconds where supported.
+- Separate approximate download and upload interval averages per gateway-reported
+  device entry, accepting the CR1000B's roughly 21-second source updates.
 - Optional friendly names, without assuming that a network identity uniquely
   identifies a physical product or a person. One physical device may have several
   entries, including after a private Wi-Fi address changes.
@@ -90,12 +162,14 @@ prevent it from reaching local printers, storage, or other devices.
 
 ## Acceptance criteria
 
-After the hardware feasibility gate passes, demonstrate on the actual setup:
+The automated tests cover application semantics, not the hardware gate. Before
+claiming a verified MVP, demonstrate on the actual setup:
 
 1. Controlled download and upload traffic is attributed to the correct test-device
    entry.
-2. Measurements update within 5 seconds when the gateway supports that target.
-   If it cannot, revisit the requirement before implementation.
+2. Detect changes at the gateway's roughly 21-second source cadence, normally
+   within one additional five-second polling wait plus request time. Repeated
+   replies must not look like fresh measurements.
 3. The rolling chart retains up to 10 minutes of measurements during a monitoring
    session and represents missing measurements as gaps rather than zero usage.
 4. A noncritical test device can be paused and resumed, with gateway-confirmed
